@@ -17,45 +17,62 @@ export function adjustUserBalance(
   }
 
   if (mode === "create" || mode === "delete") {
-    const sign = getSign(transaction.type, mode);
-    applyBalanceChange(balance, sign * transaction.amount,transaction.category);
+    const sign = getSign(mode);
+    applyBalanceChange(balance, sign * transaction.amount, transaction.category);
   }
 
   if (mode === "update" && previousTransaction) {
     // rollback transaksi lama
-    const oldSign = getSign(previousTransaction.type, "delete");
+    const oldSign = getSign("delete");
     applyBalanceChange(balance, oldSign * previousTransaction.amount, previousTransaction.category);
 
     // apply transaksi baru
-    const newSign = getSign(transaction.type, "create");
+    const newSign = getSign("create");
     applyBalanceChange(balance, newSign * transaction.amount, transaction.category);
   }
 }
 
-function getSign(type: string, mode: BalanceAdjustMode): number {
-  if (mode === "create") return type === "income" ? 1 : -1;
-  if (mode === "delete") return type === "income" ? -1 : 1;
-  return 0; // akan ditangani di "update"
+function getSign(mode: BalanceAdjustMode): number {
+  return mode === "create" ? -1 : 1;
 }
 
-function applyBalanceChange(balance: Balance, amountChange: number,category?: string) {
-  if(!category || category === TRANSACTION_CATEGORY.SALARY)balance.totalBalance += amountChange;
+function applyBalanceChange(balance: Balance, amountChange: number, category?: string) {
+  // Jika akan mengurangi saldo dan saldo tidak cukup
+  if (amountChange < 0 && balance.currentBalance + amountChange < 0) {
+    throw new Error("Saldo tidak mencukupi untuk melakukan transaksi ini");
+  }
+
   balance.currentBalance += amountChange;
 
   switch (category) {
     case TRANSACTION_CATEGORY.CHARITY:
+      if (balance.charityFund + amountChange < 0) {
+        throw new Error("Charity fund tidak mencukupi untuk melakukan transaksi ini");
+      }
       balance.charityFund += amountChange;
       break;
     case TRANSACTION_CATEGORY.EMERGENCY:
+      if (balance.emergencyFund + amountChange < 0) {
+        throw new Error("Emergency fund tidak mencukupi untuk melakukan transaksi ini");
+      }
       balance.emergencyFund += amountChange;
       break;
     case TRANSACTION_CATEGORY.LIVING:
+      if (balance.livingFund + amountChange < 0) {
+        throw new Error("Living fund tidak mencukupi untuk melakukan transaksi ini");
+      }
       balance.livingFund += amountChange;
       break;
     case TRANSACTION_CATEGORY.ENTERTAINMENT:
+      if (balance.entertainmentFund + amountChange < 0) {
+        throw new Error("Entertainment fund tidak mencukupi untuk melakukan transaksi ini");
+      }
       balance.entertainmentFund += amountChange;
       break;
     case TRANSACTION_CATEGORY.OTHER:
+      if (balance.otherFund + amountChange < 0) {
+        throw new Error("Other fund tidak mencukupi untuk melakukan transaksi ini");
+      }
       balance.otherFund += amountChange;
       break;
   }

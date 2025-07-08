@@ -9,7 +9,6 @@ export enum TRANSACTION_TYPE {
 }
 
 export enum TRANSACTION_CATEGORY {
-    SALARY = "", // gaji
     CHARITY = "charity", // dana sedekah
     EMERGENCY = "emergency", // dana darurat
     LIVING = "living", // dana hidup

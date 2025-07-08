@@ -13,7 +13,6 @@ const TransactionSchema = new mongoose.Schema<Transaction>(
     {
         userId: { type: mongoose.Schema.Types.ObjectId, ref: USER_MODEL_NAME, required: true },
         amount: { type: Number, required: true },
-        type: { type: String, required: true, enum: TRANSACTION_TYPE },
         category: { type: String, enum: TRANSACTION_CATEGORY },
         description: { type: String, default: null },
         date: { type: Date, required: true }

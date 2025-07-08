@@ -10,39 +10,32 @@ import { transactionDTO } from "../validations/transaction.validation";
 const create = async (req: IReqUser, res: Response) => {
     try {
         const userId = req.user?.id;
-        if (!userId) {
-            return response.unauthorized(res, "User not authenticated");
+        if (!userId) return response.unauthorized(res, "User not authenticated");
+
+        await transactionDTO.validate({ ...req.body, userId });
+
+        const transactionData = { ...req.body, userId };
+
+        const balance = await BalanceModel.findOne({ userId });
+        if (!balance) return response.notFound(res, "Balance not found");
+
+        // Cek apakah saldo cukup
+        try {
+            adjustUserBalance(transactionData, balance, "create");
+        } catch (err: any) {
+            return response.error(res,err, err.message);
         }
 
-        transactionDTO.validate({...req.body, userId})
-
-        const transactionData = {
-            ...req.body,
-            userId,
-        };
-
+        // Simpan transaksi & balance
         const newTransaction = await TransactionModel.create(transactionData);
+        await balance.save();
 
-        // Ambil balance milik user
-        const userBalance = await BalanceModel.findOne({ userId });
-
-        if (!userBalance) {
-            return response.notFound(res, "Balance not found for this user");
-        }
-
-        adjustUserBalance(transactionData, userBalance, "create");
-
-        await userBalance.save();
-
-        response.success(
-            res,
-            newTransaction,
-            "Transaction created and balance updated"
-        );
+        return response.success(res, newTransaction, "Transaction created");
     } catch (error) {
-        response.error(res, error, "Failed to create transaction");
+        return response.error(res, error, "Failed to create transaction");
     }
 };
+
 
 const getAll = async (req: IReqUser, res: Response) => {
     try {
@@ -91,52 +84,44 @@ const getById = async (req: IReqUser, res: Response) => {
 const update = async (req: IReqUser, res: Response) => {
     try {
         const userId = req.user?.id;
-        if (!userId) {
-            return response.unauthorized(res, "User not authenticated");
-        }
+        if (!userId) return response.unauthorized(res, "User not authenticated");
 
         const transactionId = req.params.id;
-        const transactionData = req.body;
+        const newData = req.body;
 
-        const updatedTransaction = await TransactionModel.findOneAndUpdate(
-            { _id: transactionId, userId },
-            transactionData,
+        const previousTransaction = await TransactionModel.findOne({ _id: transactionId, userId });
+        if (!previousTransaction) return response.notFound(res, "Transaction not found");
+
+        const userBalance = await BalanceModel.findOne({ userId });
+        if (!userBalance) return response.notFound(res, "Balance not found");
+
+        // Simulasi penyesuaian balance dulu
+        try {
+            adjustUserBalance(
+                { ...previousTransaction.toObject(), ...newData }, // data baru
+                userBalance,
+                "update",
+                previousTransaction
+            );
+        } catch (err: any) {
+            return response.error(res,err, err.message);
+        }
+
+        // Update transaksi jika penyesuaian balance aman
+        const updatedTransaction = await TransactionModel.findByIdAndUpdate(
+            transactionId,
+            newData,
             { new: true }
         );
 
-        const userBalance = await BalanceModel.findOne({ userId });
+        await userBalance.save();
 
-        if (!userBalance) {
-            return response.notFound(res, "Balance not found for this user");
-        }
-
-        if (!updatedTransaction) {
-            return response.notFound(res, "Transaction not found");
-        }
-
-        // If the transaction type or amount has changed, adjust the balance accordingly
-        if (updatedTransaction) {
-            const previousTransaction = await TransactionModel.findById(
-                transactionId
-            );
-            if (previousTransaction)
-                adjustUserBalance(
-                    updatedTransaction,
-                    userBalance,
-                    "update",
-                    previousTransaction
-                );
-        }
-
-        response.success(
-            res,
-            updatedTransaction,
-            "Transaction updated successfully"
-        );
+        return response.success(res, updatedTransaction, "Transaction updated");
     } catch (error) {
-        response.error(res, error, "Failed to update transaction");
+        return response.error(res, error, "Failed to update transaction");
     }
 };
+
 
 const remove = async (req: IReqUser, res: Response) => {
     try {

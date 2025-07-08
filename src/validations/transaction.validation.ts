@@ -3,13 +3,7 @@ import { TRANSACTION_CATEGORY, TRANSACTION_TYPE } from "../utils/constant";
 
 export const transactionDTO = yup.object({
   userId: yup.string().required("User ID is required"),
-  type: yup.string().required(),
-  category: yup.string().when("type",{
-    is: (val: string) => val === TRANSACTION_TYPE.EXPENSE,
-    then: (schema) =>
-      schema.required("Category is required when type is 'expense'"),
-    otherwise: (schema) => schema.optional(),
-  }),
+  category: yup.string().required("Category is required").oneOf(Object.values(TRANSACTION_CATEGORY), "Invalid category"),
   amount: yup
     .number()
     .required("Amount is required")

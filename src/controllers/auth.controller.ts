@@ -5,7 +5,6 @@ import { generateToken } from "../utils/jwt";
 import { IPaginationQuery, IReqUser } from "../utils/interface";
 import response from "../utils/response";
 import { userDTO, userLoginDTO, userUpdatePasswordDTO } from "../validations/user.validation";
-import { ROLES } from "../utils/constant";
 import BalanceModel from "../models/balance.model";
 
 const updateProfile = async (req: IReqUser, res: Response) => {
