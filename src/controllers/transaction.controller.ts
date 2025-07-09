@@ -3,38 +3,46 @@ import { IReqUser } from "../utils/interface";
 import TransactionModel from "../models/transaction.model";
 import response from "../utils/response";
 import BalanceModel from "../models/balance.model";
-import { TRANSACTION_CATEGORY } from "../utils/constant";
 import { adjustUserBalance } from "../utils/adjustUserBalance";
 import { transactionDTO } from "../validations/transaction.validation";
 
 const create = async (req: IReqUser, res: Response) => {
+    const session = await TransactionModel.startSession();
+    session.startTransaction();
+
     try {
         const userId = req.user?.id;
         if (!userId) return response.unauthorized(res, "User not authenticated");
 
         await transactionDTO.validate({ ...req.body, userId });
-
         const transactionData = { ...req.body, userId };
 
-        const balance = await BalanceModel.findOne({ userId });
-        if (!balance) return response.notFound(res, "Balance not found");
+        const balance = await BalanceModel.findOne({ userId }).session(session);
+        if (!balance) {
+            await session.abortTransaction();
+            return response.notFound(res, "Balance not found");
+        }
 
-        // Cek apakah saldo cukup
         try {
             adjustUserBalance(transactionData, balance, "create");
         } catch (err: any) {
-            return response.error(res,err, err.message);
+            await session.abortTransaction();
+            return response.error(res, err, err.message);
         }
 
-        // Simpan transaksi & balance
-        const newTransaction = await TransactionModel.create(transactionData);
-        await balance.save();
+        const newTransaction = await TransactionModel.create([transactionData], { session });
+        await balance.save({ session });
 
-        return response.success(res, newTransaction, "Transaction created");
+        await session.commitTransaction();
+        return response.success(res, newTransaction[0], "Transaction created");
     } catch (error) {
+        await session.abortTransaction();
         return response.error(res, error, "Failed to create transaction");
+    } finally {
+        session.endSession();
     }
 };
+
 
 
 const getAll = async (req: IReqUser, res: Response) => {
@@ -82,6 +90,9 @@ const getById = async (req: IReqUser, res: Response) => {
 };
 
 const update = async (req: IReqUser, res: Response) => {
+    const session = await TransactionModel.startSession();
+    session.startTransaction();
+
     try {
         const userId = req.user?.id;
         if (!userId) return response.unauthorized(res, "User not authenticated");
@@ -89,44 +100,58 @@ const update = async (req: IReqUser, res: Response) => {
         const transactionId = req.params.id;
         const newData = req.body;
 
-        const previousTransaction = await TransactionModel.findOne({ _id: transactionId, userId });
-        if (!previousTransaction) return response.notFound(res, "Transaction not found");
+        const previousTransaction = await TransactionModel.findOne({ _id: transactionId, userId }).session(session);
+        if (!previousTransaction) {
+            await session.abortTransaction();
+            return response.notFound(res, "Transaction not found");
+        }
 
-        const userBalance = await BalanceModel.findOne({ userId });
-        if (!userBalance) return response.notFound(res, "Balance not found");
+        const userBalance = await BalanceModel.findOne({ userId }).session(session);
+        if (!userBalance) {
+            await session.abortTransaction();
+            return response.notFound(res, "Balance not found");
+        }
 
-        // Simulasi penyesuaian balance dulu
         try {
             adjustUserBalance(
-                { ...previousTransaction.toObject(), ...newData }, // data baru
+                { ...previousTransaction.toObject(), ...newData },
                 userBalance,
                 "update",
                 previousTransaction
             );
         } catch (err: any) {
-            return response.error(res,err, err.message);
+            await session.abortTransaction();
+            return response.error(res, err, err.message);
         }
 
-        // Update transaksi jika penyesuaian balance aman
         const updatedTransaction = await TransactionModel.findByIdAndUpdate(
             transactionId,
             newData,
-            { new: true }
+            { new: true, session }
         );
 
-        await userBalance.save();
+        await userBalance.save({ session });
+        await session.commitTransaction();
 
         return response.success(res, updatedTransaction, "Transaction updated");
     } catch (error) {
+        await session.abortTransaction();
         return response.error(res, error, "Failed to update transaction");
+    } finally {
+        session.endSession();
     }
 };
 
 
+
 const remove = async (req: IReqUser, res: Response) => {
+    const session = await TransactionModel.startSession();
+    session.startTransaction();
+
     try {
         const userId = req.user?.id;
         if (!userId) {
+            await session.abortTransaction();
             return response.unauthorized(res, "User not authenticated");
         }
 
@@ -134,32 +159,36 @@ const remove = async (req: IReqUser, res: Response) => {
         const deletedTransaction = await TransactionModel.findOneAndDelete({
             _id: transactionId,
             userId,
-        });
+        }).session(session);
 
         if (!deletedTransaction) {
+            await session.abortTransaction();
             return response.notFound(res, "Transaction not found");
         }
 
-        // Update balance after deletion
-        const userBalance = await BalanceModel.findOne({ userId });
-
+        const userBalance = await BalanceModel.findOne({ userId }).session(session);
         if (!userBalance) {
-            return response.notFound(res, "Balance not found for this user");
+            await session.abortTransaction();
+            return response.notFound(res, "Balance not found");
         }
 
         adjustUserBalance(deletedTransaction, userBalance, "delete");
+        await userBalance.save({ session });
 
-        await userBalance.save();
-
-        response.success(
+        await session.commitTransaction();
+        return response.success(
             res,
             deletedTransaction,
             "Transaction deleted and balance updated"
         );
     } catch (error) {
-        response.error(res, error, "Failed to delete transaction");
+        await session.abortTransaction();
+        return response.error(res, error, "Failed to delete transaction");
+    } finally {
+        session.endSession();
     }
 };
+
 
 const transactionController = {
     create,

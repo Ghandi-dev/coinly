@@ -3,11 +3,6 @@ export enum ROLES {
     USER = "user",
 }
 
-export enum TRANSACTION_TYPE {
-    INCOME = "income",
-    EXPENSE = "expense",
-}
-
 export enum TRANSACTION_CATEGORY {
     CHARITY = "charity", // dana sedekah
     EMERGENCY = "emergency", // dana darurat

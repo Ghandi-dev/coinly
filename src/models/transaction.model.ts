@@ -1,6 +1,6 @@
 import mongoose, { ObjectId } from "mongoose";
 import { TypeTransaction } from "../validations/transaction.validation";
-import { TRANSACTION_CATEGORY, TRANSACTION_TYPE } from "../utils/constant";
+import { TRANSACTION_CATEGORY} from "../utils/constant";
 import { USER_MODEL_NAME } from "./user.model";
 
 export const TRANSACTION_MODEL_NAME = "Transactions";

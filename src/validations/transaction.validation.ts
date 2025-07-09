@@ -1,5 +1,5 @@
 import * as yup from "yup";
-import { TRANSACTION_CATEGORY, TRANSACTION_TYPE } from "../utils/constant";
+import { TRANSACTION_CATEGORY } from "../utils/constant";
 
 export const transactionDTO = yup.object({
   userId: yup.string().required("User ID is required"),
