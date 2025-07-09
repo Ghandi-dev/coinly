@@ -15,6 +15,22 @@ export const incomeDTO = yup.object({
         .date()
         .required("Date is required")
         .typeError("Invalid date format"),
-});
+}).test(
+    "budget-total-check",
+    "Total budget melebihi jumlah pemasukan (amount)",
+    function (values) {
+        const {
+            amount = 0,
+            charityBudget = 0,
+            emergencyBudget = 0,
+            livingBudget = 0,
+            entertainmentBudget = 0,
+            otherBudget = 0
+        } = values;
+
+        const totalBudget = charityBudget + emergencyBudget + livingBudget + entertainmentBudget + otherBudget;
+        return totalBudget <= amount;
+    }
+);
 
 export type TypeIncome = yup.InferType<typeof incomeDTO>;

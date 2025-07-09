@@ -27,7 +27,7 @@ export default {
           status: 400,
         },
         data: {
-          [`${error.path}`]: error.message,
+          [`${error.path == "" ? "message" : error.path}`]: error.message,
         },
       });
     }
