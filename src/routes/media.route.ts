@@ -7,12 +7,28 @@ import { ROLES } from "../utils/constant";
 
 const router = express.Router();
 
-router.post("/media/upload-single", [authMiddleware, aclMiddleware([ROLES.ADMIN, ROLES.SUPERADMIN]), mediaMiddleware.single("file")], mediaController.single);
 router.post(
-	"/media/upload-multiple",
-	[authMiddleware, aclMiddleware([ROLES.ADMIN, ROLES.SUPERADMIN]), mediaMiddleware.multiple("files")],
-	mediaController.multiple
+    "/media/upload-single",
+    [
+        authMiddleware,
+        aclMiddleware([ROLES.USER, ROLES.SUPERADMIN]),
+        mediaMiddleware.single("file"),
+    ],
+    mediaController.single
 );
-router.delete("/media/remove", [authMiddleware, aclMiddleware([ROLES.ADMIN, ROLES.SUPERADMIN])], mediaController.remove);
+router.post(
+    "/media/upload-multiple",
+    [
+        authMiddleware,
+        aclMiddleware([ROLES.USER, ROLES.SUPERADMIN]),
+        mediaMiddleware.multiple("files"),
+    ],
+    mediaController.multiple
+);
+router.delete(
+    "/media/remove",
+    [authMiddleware, aclMiddleware([ROLES.USER, ROLES.SUPERADMIN])],
+    mediaController.remove
+);
 
 export default router;
